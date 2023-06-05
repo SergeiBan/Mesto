@@ -39,9 +39,10 @@ onMounted(() => {
     map.addChild(layer2)
 
 
-    const mouseMoveCallback = (obj, event) => {
+    const mouseClickCallback = (obj, event) => {
         y.value = event.coordinates[0]
         x.value = event.coordinates[1]
+        console.log(obj, y.value, x.value)
         
         map.removeChild(m.value)
         m_html.value.remove()
@@ -54,7 +55,7 @@ onMounted(() => {
 
     const mapListener = new ymaps3.YMapListener({
         layer: 'any',
-        onClick: mouseMoveCallback,
+        onClick: mouseClickCallback,
     });
     map.addChild(mapListener);
     
