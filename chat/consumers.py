@@ -35,39 +35,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message = text_data_json['message']
 
         if 'travel' in message:
-
             self.y, self.x = message["travel"]["y"], message["travel"]["x"]
-
-            self.nearby = await get_nearby_people(self.y, self.x, r)
+            self.nearby = await self.get_nearby_people(self.y, self.x, r)
             if self.nearby == 0:
                 return
 
-            for person in self.nearby:
-                await self.channel_layer.send(
-                    person,
-                    {'type': 'chat_message', 'message': f'y {self.y} x {self.x}'}
-                )
-            await deliver_message(self, self.nearby, f'y {self.y} x {self.x}')
+            await self.deliver_message(
+                self.nearby, {'guest': self.channel_name, 'y': self.y, 'x': self.x})
             await r.geoadd('World', (self.y, self.x, self.channel_name))
             return
 
-        self.nearby = await get_nearby_people(self.y, self.x, r)       
-        await deliver_message(self, self.nearby, message)
-        print(self.nearby, message)
+        self.nearby = await self.get_nearby_people(self.y, self.x, r)
+        await self.deliver_message(self.nearby, message)
 
     async def chat_message(self, event):
         message = event['message']
         await self.send(text_data=json.dumps({'message': message}))
 
+    async def get_nearby_people(self, y, x, r):
+        return await r.geosearch(
+            name='World', longitude=y, latitude=x, unit='km', radius=1000)
 
-async def get_nearby_people(y, x, r):
-    return await r.geosearch(
-        name='World', longitude=y, latitude=x, unit='km', radius=1000)
-
-
-async def deliver_message(consumer, nearby, message):
-    for person in nearby:
-        await consumer.channel_layer.send(
-            person,
-            {'type': 'chat_message', 'message': message}
-        )
+    async def deliver_message(self, nearby, message):
+        for person in nearby:
+            await self.channel_layer.send(
+                person,
+                {'type': 'chat_message', 'message': message}
+            )

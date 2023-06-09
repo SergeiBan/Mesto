@@ -42,7 +42,6 @@ onMounted(() => {
     const mouseClickCallback = (obj, event) => {
         y.value = event.coordinates[0]
         x.value = event.coordinates[1]
-        console.log(obj, y.value, x.value)
         
         map.removeChild(m.value)
         m_html.value.remove()

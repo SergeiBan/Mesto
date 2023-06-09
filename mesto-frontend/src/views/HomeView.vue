@@ -4,13 +4,18 @@ import Map from '../components/Map.vue'
 
 const y = ref(0)
 const x = ref(0)
-const log = ref(null)
-const message = ref(null)
+const log = ref('')
+const message = ref('')
+const nearby = {}
 
 const chatSocket = new WebSocket(`ws://${window.location.host}/ws/chat/${y.value}/`)
 
 chatSocket.onmessage = function(e) {
   const data = JSON.parse(e.data)
+  if ('guest' in data.message) {
+    nearby[data.message.guest] = {y: data.message.y, x: data.message.x}
+    console.log(nearby)
+  }
   log.value += (`${data.message}\n`)
 }
 
