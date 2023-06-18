@@ -10,6 +10,8 @@ async def flush_redis():
     await r.flushall(asynchronous=True)
 
 JUST_STARTED = True
+RADIUS = 1000
+UNITS = 'km'
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -18,6 +20,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.y = None
         self.x = None
         self.nearby = None
+        self.prev_nearby = None
+        self.nearby_names = None
         super().__init__()
 
     async def connect(self):
@@ -28,6 +32,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, code):
+        await r.zrem('World', self.channel_name)
+        if self.prev_nearby:
+            await self.deliver_message(
+                self.prev_nearby,
+                {'gone': self.channel_name}
+            )
         await r.close()
 
     async def receive(self, text_data):
@@ -36,25 +46,35 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         if 'travel' in message:
             self.y, self.x = message["travel"]["y"], message["travel"]["x"]
-            self.nearby = await self.get_nearby_people(self.y, self.x, r)
-            if self.nearby == 0:
-                return
+            await r.geoadd('World', (self.y, self.x, self.channel_name))
+
+            nearby_coords = await self.get_nearby_people()
+            self.nearby_names = set([el[0] for el in nearby_coords])
+
+            if self.prev_nearby:
+                await self.deliver_message(
+                    self.prev_nearby.difference(self.nearby_names),
+                    {'gone': self.channel_name}
+                )
+            self.prev_nearby = self.nearby_names.copy()
 
             await self.deliver_message(
-                self.nearby, {'guest': self.channel_name, 'y': self.y, 'x': self.x})
-            await r.geoadd('World', (self.y, self.x, self.channel_name))
+                self.nearby_names,
+                {'around_me': nearby_coords}
+            )
+
             return
 
-        self.nearby = await self.get_nearby_people(self.y, self.x, r)
-        await self.deliver_message(self.nearby, message)
+        nearby_coords = await self.get_nearby_people()
+        self.nearby_names = set([el[0] for el in nearby_coords])
 
-    async def chat_message(self, event):
-        message = event['message']
-        await self.send(text_data=json.dumps({'message': message}))
+        await self.deliver_message(self.nearby_names, {'new_message': message})
 
-    async def get_nearby_people(self, y, x, r):
+    async def get_nearby_people(self):
         return await r.geosearch(
-            name='World', longitude=y, latitude=x, unit='km', radius=1000)
+            name='World', longitude=self.y, latitude=self.x, unit=UNITS,
+            radius=RADIUS, withcoord=True
+        )
 
     async def deliver_message(self, nearby, message):
         for person in nearby:
@@ -62,3 +82,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 person,
                 {'type': 'chat_message', 'message': message}
             )
+
+    async def chat_message(self, event):
+        message = event['message']
+        await self.send(text_data=json.dumps({'message': message}))

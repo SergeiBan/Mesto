@@ -6,17 +6,25 @@ const y = ref(0)
 const x = ref(0)
 const log = ref('')
 const message = ref('')
-const nearby = {}
+const nearby = ref({})
 
-const chatSocket = new WebSocket(`ws://${window.location.host}/ws/chat/${y.value}/`)
+const chatSocket = new WebSocket(`ws://${window.location.host}/ws/chat/`)
 
 chatSocket.onmessage = function(e) {
   const data = JSON.parse(e.data)
   if ('guest' in data.message) {
-    nearby[data.message.guest] = {y: data.message.y, x: data.message.x}
-    console.log(nearby)
+    // nearby.value[data.message.guest] = {y: data.message.y, x: data.message.x}
+  } else if ('gone' in data.message) {
+      const gone_guest = data.message.gone
+      delete nearby.value[`${gone_guest}`]
+  } else if ('new_message' in data.message) {
+      log.value += (`${Object.values(data.message)}\n`)
+  } else if ('around_me' in data.message) {
+
+    data.message.around_me.forEach(element => {
+      nearby.value[element[0]] = {y: element[1][0], x: element[1][1]}
+    });
   }
-  log.value += (`${data.message}\n`)
 }
 
 chatSocket.onclose = function(e) {
@@ -29,7 +37,6 @@ const submitMessage = function() {
 }
 
 const sendCoords = (y, x) => {
-  console.log(y, x)
   message.value = {travel: {y: y, x: x}}
   submitMessage()
 }
@@ -44,7 +51,6 @@ const sendCoords = (y, x) => {
     <input class="form-control mb-2" type="text" v-model="message">
     <input class="form-button btn mb-2 btn-info" type="button" value="Отправить" @click="submitMessage">
 
-    <!-- <div id="map" style="width: 600px; height: 400px"></div> -->
-    <Map @travel="sendCoords" />
+    <Map @travel="sendCoords" :nearby="nearby" />
   </main>
 </template>

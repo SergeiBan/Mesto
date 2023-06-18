@@ -1,25 +1,41 @@
 <script setup>
 
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 const emit = defineEmits(['travel'])
+const props = defineProps({
+  nearby: Object
+})
+let prev_nearby = {}
 
 const y = ref(0)
 const x = ref(0)
 let m = ref(null)
 let m_html = ref(null)
+let theMap = null
+
+const mHTML = ref({})
+const markers = ref({})
 
 
-const placeMarker = (map) => {
+const copy_nearby = () => {
+  prev_nearby = {}
+  for (const [k, v] of Object.entries(props.nearby)) {
+    prev_nearby[k] = v
+  }
+}
+
+const placeMarker = (map, y, x, guest) => {
     const content = document.createElement('button');
         content.innerHTML = 'я'
-        m_html.value = content
         const marker = new ymaps3.YMapMarker({
-                coordinates: [y.value, x.value],
+                coordinates: [y, x],
                 draggable: false
                 }, content)
-        m.value = marker
-        map.addChild(marker)
+        theMap.addChild(marker)
+
+        markers.value[guest] = marker
+        mHTML.value[guest] = content
 }
 
 onMounted(() => {
@@ -33,6 +49,13 @@ onMounted(() => {
       },
     })
 
+    const gl = navigator.geolocation.getCurrentPosition(success)
+    function success(position) {
+      console.log(position)
+    }
+
+
+
     const layer1 = new ymaps3.YMapDefaultSchemeLayer({zIndex: -1});
     map.addChild(layer1);
     const layer2 = new ymaps3.YMapDefaultFeaturesLayer({zIndex: 1800})
@@ -42,15 +65,9 @@ onMounted(() => {
     const mouseClickCallback = (obj, event) => {
         y.value = event.coordinates[0]
         x.value = event.coordinates[1]
-        
-        map.removeChild(m.value)
-        m_html.value.remove()
-
-        placeMarker(map)
         emit('travel', y.value, x.value)
     }
-
-    placeMarker(map)
+    theMap = map
 
     const mapListener = new ymaps3.YMapListener({
         layer: 'any',
@@ -59,6 +76,27 @@ onMounted(() => {
     map.addChild(mapListener);
     
   }
+
+})
+
+watch(props.nearby, (new_nearby) => {
+  for (const [k, v] of Object.entries(props.nearby)) {
+    if (!(k in prev_nearby)) {
+      placeMarker(theMap, v.y, v.x, k)
+    } else if (v.y != prev_nearby[k].y || v.x != prev_nearby[k].x) {
+        theMap.removeChild(markers.value[k])
+        mHTML.value[k].remove()
+        placeMarker(theMap, v.y, v.x, k)
+    }
+    
+  }
+  for (const [k, v] of Object.entries(prev_nearby)) {
+    if (!(k in props.nearby)) {
+      theMap.removeChild(markers.value[k])
+      mHTML.value[k].remove()
+    }
+  }
+  copy_nearby()
 
 })
 </script>
