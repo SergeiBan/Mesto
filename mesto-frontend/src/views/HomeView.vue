@@ -12,11 +12,9 @@ const chatSocket = new WebSocket(`ws://${window.location.host}/ws/chat/`)
 
 chatSocket.onmessage = function(e) {
   const data = JSON.parse(e.data)
-  if ('guest' in data.message) {
-    // nearby.value[data.message.guest] = {y: data.message.y, x: data.message.x}
-  } else if ('gone' in data.message) {
-      const gone_guest = data.message.gone
-      delete nearby.value[`${gone_guest}`]
+  if ('gone' in data.message) {
+    const gone_guest = data.message.gone
+    delete nearby.value[`${gone_guest}`]
   } else if ('new_message' in data.message) {
       log.value += (`${Object.values(data.message)}\n`)
   } else if ('around_me' in data.message) {
@@ -45,8 +43,6 @@ const sendCoords = (y, x) => {
 
 <template>
   <main>
-    <input type="number" class="form-control mb-2" v-model="y">
-    <input type="number" class="form-control mb-2" v-model="x">
     <textarea class="form-control mb-2" v-model="log"></textarea>
     <input class="form-control mb-2" type="text" v-model="message">
     <input class="form-button btn mb-2 btn-info" type="button" value="Отправить" @click="submitMessage">

@@ -42,18 +42,19 @@ onMounted(() => {
   ymaps3.ready.then(init);
   function init() {
 
+    navigator.geolocation.getCurrentPosition(success)
+    function success(position) {
+      y.value = position.coords.latitude
+      x.value = position.coords.longitude
+    }
+
     const map = new ymaps3.YMap(document.getElementById('map'), {
       location: {
-        center: [37.64, 55.76],
+        // center: [37.64, 55.76],
+        center: [y.values, x.value],
         zoom: 7
       },
     })
-
-    const gl = navigator.geolocation.getCurrentPosition(success)
-    function success(position) {
-      console.log(position)
-    }
-
 
 
     const layer1 = new ymaps3.YMapDefaultSchemeLayer({zIndex: -1});
